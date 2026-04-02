@@ -51,7 +51,7 @@
 	});
 </script>
 
-<section class="text-sm flex flex-col gap-2 p-6 mx-auto max-w-none bg-transparent w-[346px] max-md:p-4 max-md:w-full max-md:max-w-[991px] max-sm:p-3 max-sm:max-w-screen-sm">
+<section class="text-sm flex flex-col gap-2 p-6 mx-auto max-w-none bg-transparent w-[346px] max-md:p-4 max-md:w-full max-sm:p-3 max-sm:max-w-screen-sm">
 	<!-- Bus header with icon and number -->
 	<div class="flex justify-between items-center w-full">
 		<div class="flex gap-1 items-center">
@@ -63,7 +63,6 @@
 		<div class="text-right text-white"></div>
 	</div>
 	<div class="overflow-y-scroll scrollbar-hide"
-			 style={$isMobile ? scrollHeightStyle : undefined}
 			 bind:this={$scrollableElement}>
 	<!-- Bus stops -->
 	{#each stops as stop}

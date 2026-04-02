@@ -391,7 +391,6 @@
 		<!-- Scrollable departures list -->
 		<div
 			class="overflow-y-scroll scrollbar-hide"
-			style={$isMobile ? scrollHeightStyle : undefined}
 			bind:this={$scrollableElement}
 		>
 			{#if nextDepartures.length === 0}

@@ -36,7 +36,7 @@
 				? map.set(item.trip_id, item)
 				: map, new Map<string, Trip | LiveTrip>()
 		).values()
-	).slice(0, 10);
+	).slice(0, 15);
 
 
 </script>
@@ -58,10 +58,7 @@
 		<div class="text-right">Departure</div>
 		<div class="text-right">ETA</div>
 	</div>
-	<div class="overflow-y-scroll scrollbar-hide"
-			 style="
-	height: calc(100vh - {((window.innerHeight / 3) / 2) + 250}px);
-	" bind:this={$scrollableElement}>
+	<div class="overflow-y-scroll scrollbar-hide" bind:this={$scrollableElement}>
 	<!-- Trips -->
 	{#each allTrips as e}
 		<StopTripEntry trip={e} selectedStop={stop.stop_id} />

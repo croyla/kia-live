@@ -1,29 +1,33 @@
 <script lang="ts">
 	import type { Stop } from '$lib/structures/Stop';
-	import { onMount } from 'svelte';
-	import { infoViewY, isMobile, infoViewWidth, scrollableElement } from '$lib/stores/infoView';
+	import { onMount, tick } from 'svelte';
+	import { isMobile, infoViewWidth } from '$lib/stores/infoView';
 	import { selected, selectedMetroStation } from '$lib/stores/discovery';
 	import StopInfo from '$components/StopInfo.svelte';
 	import type { Trip } from '$lib/structures/Trip';
 	import type { LiveTrip } from '$lib/structures/LiveTrip';
 	import TripInfo from '$components/TripInfo.svelte';
 	import MetroStationInfo from '$components/MetroStationInfo.svelte';
+	import { CupertinoPane } from 'cupertino-pane';
 
-	let dragStartY = 0;
-	let currentY = 0;
-	let heightRatio = 2 / 3;
 	let allStations: string[] = [];
+
+	// paneVisible controls whether the div is in the DOM.
+	// It is NOT the same as showPane — we delay setting it to false so the
+	// close animation can play before Svelte removes the element.
+	let paneVisible = false;
+	let paneEl: HTMLDivElement;
+	let pane: CupertinoPane | undefined;
+	let closing = false; // prevent re-entrant close calls during animation
 
 	function handleResize() {
 		isMobile.set(window.innerWidth < 800);
 	}
 
 	onMount(() => {
-		infoViewY.set(window.innerHeight * heightRatio);
 		handleResize();
 		window.addEventListener('resize', handleResize);
 
-		// Load metro station list
 		(async () => {
 			try {
 				const stationIndex = await fetch('metro/stops/index.json');
@@ -34,63 +38,75 @@
 			}
 		})();
 
-		return () => window.removeEventListener('resize', handleResize);
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			pane?.destroy({ animate: false });
+		};
 	});
 
-	function startDrag(e: TouchEvent | MouseEvent) {
-		const y = (e as TouchEvent).touches?.[0]?.clientY ?? (e as MouseEvent).clientY;
-		const x = (e as TouchEvent).touches?.[0]?.clientX ?? (e as MouseEvent).clientX;
-		if ($scrollableElement && $scrollableElement.scrollHeight > $scrollableElement.clientHeight && document.elementsFromPoint(x, y).includes($scrollableElement)) {
-			// Allow scrolling to happen inside scrollable
-			return;
-		}
-		dragStartY = y;
-		document.addEventListener('touchmove', drag, { passive: false });
-		document.addEventListener('touchend', endDrag);
-		document.addEventListener('mousemove', drag);
-		document.addEventListener('mouseup', endDrag);
-	}
-
-	function drag(e: TouchEvent | MouseEvent) {
-		e.preventDefault();
-		currentY = (e as TouchEvent).touches?.[0]?.clientY ?? (e as MouseEvent).clientY;
-		const delta = currentY - dragStartY;
-		const screenHeight = window.innerHeight;
-		infoViewY.set(Math.min(screenHeight * 2 / 3, Math.max(screenHeight / 3, screenHeight * heightRatio + delta)));
-	}
-
-	function endDrag() {
-		const screenHeight = window.innerHeight;
-		const midpoint = (screenHeight / 3 + screenHeight * 2 / 3) / 2;
-		heightRatio = $infoViewY > midpoint ? 2 / 3 : 1 / 3;
-		infoViewY.set(screenHeight * heightRatio);
-
-		document.removeEventListener('touchmove', drag);
-		document.removeEventListener('touchend', endDrag);
-		document.removeEventListener('mousemove', drag);
-		document.removeEventListener('mouseup', endDrag);
+	function initPane() {
+		if (!paneEl || pane) return;
+		const sh = window.innerHeight;
+		pane = new CupertinoPane(paneEl, {
+			breaks: {
+				top:    { enabled: true, height: Math.round(sh * 0.9) },
+				middle: { enabled: true, height: Math.round(sh * 0.6) },
+				bottom: { enabled: true, height: Math.round(sh * 0.2) }
+			},
+			initialBreak: 'middle',
+			backdrop: false,
+			fastSwipeClose: false,
+			cssClass: 'info-pane',
+			events: {
+				onDidDismiss: () => {
+					// User swiped the pane away — clear selection and remove element
+					pane = undefined;
+					paneVisible = false;
+					selected.set(undefined);
+					selectedMetroStation.set('');
+				}
+			}
+		});
+		pane.present({ animate: true });
 	}
 
 	$: selectedTrip = $selected as Trip | LiveTrip;
 	$: selectedStop = $selected as Stop;
 	$: hasSelectedMetro = allStations.includes($selectedMetroStation);
+	$: showPane = $selected !== undefined || $selectedMetroStation !== '';
+
+	// Open: put element in DOM, then init pane after Svelte renders it
+	$: if ($isMobile && showPane && !paneVisible) {
+		paneVisible = true;
+		tick().then(initPane);
+	}
+
+	// Close (externally triggered, e.g. map tap): animate out, then remove element
+	$: if ($isMobile && !showPane && paneVisible && !closing) {
+		if (pane?.isPanePresented()) {
+			closing = true;
+			pane.destroy({ animate: true }).then(() => {
+				pane = undefined;
+				paneVisible = false;
+				closing = false;
+			});
+		} else {
+			paneVisible = false;
+		}
+	}
+
+	// If screen switches to desktop while pane is open, tear down without animation
+	$: if (!$isMobile && pane) {
+		pane.destroy({ animate: false });
+		pane = undefined;
+		paneVisible = false;
+	}
 </script>
 
-{#if $selected !== undefined || hasSelectedMetro}
-	{#if $isMobile}
-		<!-- Bottom Sheet Mode -->
-		<div
-			class="font-[IBM_Plex_Sans] fixed bottom-0 w-full bg-black text-white px-6 py-8 transition-transform duration-300 z-[3]"
-			style="
-				height: calc(100vh - {$infoViewY}px);
-			"
-			role="dialog"
-			aria-hidden=true
-			on:touchstart={startDrag}
-			on:mousedown={startDrag}
-		>
+{#if $isMobile}
+	{#if paneVisible}
+		<div bind:this={paneEl} class="font-[IBM_Plex_Sans] text-white px-6 py-2">
 			{#if $selected !== undefined && !hasSelectedMetro}
-			<!-- Scrollable content wrapper -->
 				{#if Object.hasOwn($selected, 'stop_id')}
 					<StopInfo stop={selectedStop} />
 				{/if}
@@ -98,24 +114,34 @@
 					<TripInfo trip={selectedTrip} />
 				{/if}
 			{/if}
-			{#if hasSelectedMetro}
-				<MetroStationInfo stationId={$selectedMetroStation} />
-			{/if}
-		</div>
-	{:else}
-		<!-- Sidebar Mode -->
-		<div class="font-[IBM_Plex_Sans] fixed left-0 top-0 h-full w-[{$infoViewWidth}px] bg-black text-white px-6 py-8 shadow-lg z-[3] overflow-y-auto">
-			{#if $selected !== undefined && !hasSelectedMetro}
-				{#if Object.hasOwn($selected, 'stop_id')} <!-- Selected is a stop -->
-					<StopInfo stop = {selectedStop} />
-				{/if}
-				{#if Object.hasOwn($selected, 'trip_id')} <!-- Selected is a trip -->
-					<TripInfo trip = {selectedTrip} />
-				{/if}
-			{/if}
-			{#if hasSelectedMetro}
+			{#if $selectedMetroStation !== ''}
 				<MetroStationInfo stationId={$selectedMetroStation} />
 			{/if}
 		</div>
 	{/if}
+{:else}
+	<!-- Sidebar Mode -->
+	<div class="font-[IBM_Plex_Sans] fixed left-0 top-0 h-full w-[{$infoViewWidth}px] bg-black text-white px-6 py-8 shadow-lg z-[3] overflow-y-auto">
+		{#if $selected !== undefined && !hasSelectedMetro}
+			{#if Object.hasOwn($selected, 'stop_id')}
+				<StopInfo stop={selectedStop} />
+			{/if}
+			{#if Object.hasOwn($selected, 'trip_id')}
+				<TripInfo trip={selectedTrip} />
+			{/if}
+		{/if}
+		{#if hasSelectedMetro}
+			<MetroStationInfo stationId={$selectedMetroStation} />
+		{/if}
+	</div>
 {/if}
+
+<style>
+	/* .info-pane is on the cupertino-pane wrapper; override its CSS variables */
+	:global(.info-pane) {
+			--cupertino-pane-destroy-button-background: #000000;
+			--cupertino-pane-icon-close-color: #FFF;
+		--cupertino-pane-background: #000000;
+		--cupertino-pane-move-background: rgba(255, 255, 255, 0.3);
+	}
+</style>
