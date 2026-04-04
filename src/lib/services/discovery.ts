@@ -20,6 +20,7 @@ import {
 	selectedTripID
 } from '$lib/stores/discovery';
 import { get } from 'svelte/store';
+import { discoveryLoading } from '$lib/stores/loading';
 import { currentLocation, type InputCoords, inputLocation, userLocation } from '$lib/stores/location';
 import {
 	fitMapToPoints,
@@ -42,12 +43,13 @@ let busMarkerInterval: NodeJS.Timeout | undefined = undefined;
 let lastLoadNextBusesTime = 0;
 let lastLoadNextBusesLocation: { lat: number; lon: number } | undefined = undefined;
 
-// Note: Walking routes now use high priority, so they get OSRM data immediately
-// No need for background update subscription since routes are fetched with priority='high'
+// Walking route OSRM fetch runs in the background and does not block displayCurrentTrip
 
 // Public function for non-location-based triggers (feed updates, timers)
 async function loadNextBuses() {
+	
 	await loadNextBusesInternal();
+	
 }
 
 // Throttled wrapper for user location changes only
@@ -116,7 +118,7 @@ async function loadNextBusesInternal() {
 	// Update last load location for throttling
 	lastLoadNextBusesLocation = { lat: loc.latitude, lon: loc.longitude };
 	lastLoadNextBusesTime = Date.now();
-	// console.log(loc);
+	// 
 	const transitFeed = get(transitFeedStore);
 	const liveFeed = get(liveTransitFeed);
 	const stops = await filterLocationsByRange(
@@ -332,16 +334,23 @@ let liveMarkerMemory: { tripId: string; lat: number; lon: number; bearing: numbe
 	undefined;
 // Track which trip owns the running animation interval
 let busMarkerTripId: string | undefined = undefined;
-
 export async function displayCurrentTrip() {
 	// Take currently selected trip id, filter next buses, if id not in next buses list, get bus at nextBusIndex from next buses list
 	// display relevant markers and layers on map
+	if (get(discoveryLoading)) {
+		
+		return
+	}
+	discoveryLoading.set(true);
+	console.log('starting rendering current trip')
 	displayingMarkerStyles = [];
 	// Get the route direction
 	const direction = get(airportDirection) ? 'toAirport' : 'toCity';
+	
 	// Get the selected item, this will affect the state of our styles
 	const highlighted = get(selected);
 	// Get the selected stop, if a stop is selected
+	
 	const highlightStop =
 		highlighted !== undefined && Object.hasOwn(highlighted, 'stop_id')
 			? (highlighted as Stop)
@@ -358,13 +367,16 @@ export async function displayCurrentTrip() {
 	// 		? (highlighted as LiveTrip)
 	// 		: undefined;
 	const buses = get(nextBuses)[direction];
+	
 	const index = get(nextBusIndex);
 	// Only cancel existing animation if the trip changes; otherwise preserve animation continuity
 	const selectedTrip = get(selectedTripID);
 	if (!selectedTrip) {
 		clearTripLayers(true);
+		discoveryLoading.set(false);
 		return;
 	}
+	
 	const tripFind = buses.find((val) => val.trip_id === selectedTrip);
 	// If the selected/displaying trip is no longer in nextBuses, find its new index or reset gracefully
 	if (!tripFind) {
@@ -376,6 +388,7 @@ export async function displayCurrentTrip() {
 				nextBusIndex.set(newIndex);
 			}
 			selectedTripID.set(buses[newIndex].trip_id);
+			discoveryLoading.set(false);
 			return; // Will re-render with the new selection
 		}
 	}
@@ -476,6 +489,7 @@ export async function displayCurrentTrip() {
 			);
 		}
 		// Skip clearing or re-drawing layers to avoid flicker/clears
+		discoveryLoading.set(false);
 		return;
 	}
 	const splitRes = await splitTrip(
@@ -496,6 +510,7 @@ export async function displayCurrentTrip() {
 		}));
 	const geoJSONShapeAfter = geoJSONFromShape(splitRes.shapeAfter.map((v) => [v.lon, v.lat]));
 	const geoJSONShapeBefore = geoJSONFromShape(splitRes.shapeBefore.map((v) => [v.lon, v.lat]));
+	
 	updateLayer(lineLayer, geoJSONShapeAfter);
 	updateLayer(
 		'GRAY_LINE',
@@ -531,16 +546,15 @@ export async function displayCurrentTrip() {
 			: geoJSONFromStops(stopsBefore)
 	);
 	// if(!highlighted) updateLayer('WHITE_GRAY_CIRCLE', geoJSONFromStops(tripStopsFiltered));
-	// Walking route uses high priority to get OSRM data immediately
-	updateLayer(
-		walkLayer,
-		await geoJsonWalkLineFromPoints(
-			loc.latitude,
-			loc.longitude,
-			closestStop.stop.stop_lat,
-			closestStop.stop.stop_lon
-		)
-	);
+	// Walking route: fire in background, does not block rendering or discoveryLoading
+	geoJsonWalkLineFromPoints(
+		loc.latitude,
+		loc.longitude,
+		closestStop.stop.stop_lat,
+		closestStop.stop.stop_lon
+	).then((data) => updateLayer(walkLayer, data))
+	 .catch((err) => console.error('Failed to fetch walking route', err));
+	
 	const busStopStyle =
 		highlighted !== undefined &&
 		(highlightStop === undefined || closestStop.stop.stop_id !== highlightStop.stop_id)
@@ -587,6 +601,7 @@ export async function displayCurrentTrip() {
 		undefined,
 		undefined
 	);
+	
 	// Ensure bus highlight only when this trip is selected
 	const liveLoc = vehicle ? vehicle.previous_locations.length > 1 ? vehicle.previous_locations[vehicle.previous_locations.length - 2] : vehicle.previous_locations[vehicle.previous_locations.length - 1] : undefined;
 	const bearing = liveLoc ? liveLoc.bearing : vehicle ? vehicle.bearing : 0;
@@ -607,6 +622,7 @@ export async function displayCurrentTrip() {
 		},
 		bearing
 	);
+	
 	displayingMarkerStyles.push(
 		highlighted !== undefined &&
 			(highlightTrip === undefined || highlightTrip.trip_id !== currentTrip.trip_id)
@@ -624,12 +640,15 @@ export async function displayCurrentTrip() {
 		stop_id: closestStop.stop.stop_id,
 		stop_time: closestStop.stop_time.getTime()
 	};
+	
 	displayingTrip.set(currentTrip);
 	highlightedStop.set(closestStop.stop);
 	await animateBusMarker(currentTrip, closestStop.stop);
 
 	// Save the current display signature as last rendered
 	lastDisplaySignature = displaySignature;
+	discoveryLoading.set(false);
+	
 }
 
 function toggleAirportDirectionInternal(
@@ -877,7 +896,6 @@ async function geoJsonWalkLineFromPoints(
 	lat2: number,
 	lng2: number
 ): Promise<GeoJSONSourceSpecification> {
-	// High priority: walking route rendering should get OSRM data immediately
 	const routeData = await getTravelRoute([lng1, lat1], [lng2, lat2], 'walking', 'high');
 	const geojson: GeoJSON.FeatureCollection = {
 		type: 'FeatureCollection',
@@ -911,7 +929,6 @@ function geoJSONFromStops(stops: { stop: Stop; stop_time: Date }[]): GeoJSONSour
 			}
 		}))
 	};
-	// console.log(geojson);
 	return { type: 'geojson', data: geojson };
 }
 

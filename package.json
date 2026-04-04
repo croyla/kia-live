@@ -64,6 +64,7 @@
   "dependencies": {
     "@inlang/paraglide-sveltekit": "0.15.5",
     "@types/jszip": "^3.4.0",
+    "cupertino-pane": "^1.5.4",
     "dotenv": "^16.4.7",
     "gtfs-realtime-bindings": "^1.1.1",
     "idb": "^8.0.3",

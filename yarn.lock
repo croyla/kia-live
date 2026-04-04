@@ -3508,6 +3508,11 @@ csv-parser@^3.2.0:
   resolved "https://registry.npmjs.org/csv-parser/-/csv-parser-3.2.0.tgz"
   integrity sha512-fgKbp+AJbn1h2dcAHKIdKNSSjfp43BZZykXsCjzALjKy80VXQNHPFJ6T9Afwdzoj24aMkq8GwDS7KGcDPpejrA==
 
+cupertino-pane@^1.5.4:
+  version "1.5.4"
+  resolved "https://registry.yarnpkg.com/cupertino-pane/-/cupertino-pane-1.5.4.tgz#3b5a4940a7a1ac20a3975c510af5224092fa2573"
+  integrity sha512-+b7vtlPGSOH4JaDfF/5FLDaYx3q//jksMulQu3gpXZH1G9khBLFySWOEuVaASWDJStoW8Gm/ZQlrBgLojgUA6Q==
+
 data-urls@^5.0.0:
   version "5.0.0"
   resolved "https://registry.npmjs.org/data-urls/-/data-urls-5.0.0.tgz"

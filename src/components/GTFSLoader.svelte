@@ -12,10 +12,22 @@
     import type { Vehicle } from '$lib/structures/Vehicle';
     import type Long from 'long';
     import { connected } from '$lib/stores/discovery';
+    import { gtfsLoading, discoveryLoading } from '$lib/stores/loading';
 		import { get } from 'svelte/store';
 
-    // Loading state - reactive based on whether we have cached data
-    $: isLoading = $transitFeedStore.routes.length === 0;
+    // Mirror GTFS loading state into the shared store
+    $: $gtfsLoading = $transitFeedStore.routes.length === 0;
+
+    // Only show the discovery spinner if discoveryLoading stays true for ≥1s
+    let showDiscoverySpinner = false;
+    let discoveryDelayTimer: ReturnType<typeof setTimeout> | null = null;
+    $: if ($discoveryLoading) {
+        discoveryDelayTimer = setTimeout(() => { showDiscoverySpinner = true; }, 1000);
+    } else {
+        if (discoveryDelayTimer) { clearTimeout(discoveryDelayTimer); discoveryDelayTimer = null; }
+        showDiscoverySpinner = false;
+    }
+
     let retryCount = 0;
     let wsRetryCount = 0;
     let currentWs: WebSocket | null = null;
@@ -518,10 +530,15 @@
     });
 </script>
 
-{#if isLoading}
+{#if $gtfsLoading || showDiscoverySpinner}
     <div class="fixed inset-0 z-50 bg-black bg-opacity-40 opacity-80 backdrop-blur-sm">
     </div>
 	<div class="fixed inset-0 flex items-center justify-center z-51">
 		<div class="animate-spin rounded-full h-16 w-16 border-2 border-b-1 border-[#1967D3] bg-opacity-100"></div>
 	</div>
 {/if}
+<!--{#if showDiscoverySpinner}-->
+<!--	<div class="fixed inset-0 flex items-center justify-center z-51">-->
+<!--		<div class="animate-spin rounded-full h-16 w-16 border-2 border-b-1 border-[#1967D3] bg-opacity-100"></div>-->
+<!--	</div>-->
+<!--{/if}-->

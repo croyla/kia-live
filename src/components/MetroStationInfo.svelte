@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { language } from '$lib/stores/language';
-	import { scrollableElement, isMobile } from '$lib/stores/infoView';
+	import { scrollableElement } from '$lib/stores/infoView';
 	import StationDepartureEntry from '$components/StationDepartureEntry.svelte';
 	import metroIcon from '$assets/metro-icon.svg?raw';
 
@@ -391,7 +391,6 @@
 		<!-- Scrollable departures list -->
 		<div
 			class="overflow-y-scroll scrollbar-hide"
-			style={$isMobile ? scrollHeightStyle : undefined}
 			bind:this={$scrollableElement}
 		>
 			{#if nextDepartures.length === 0}
