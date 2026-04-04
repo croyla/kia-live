@@ -47,9 +47,9 @@ let lastLoadNextBusesLocation: { lat: number; lon: number } | undefined = undefi
 
 // Public function for non-location-based triggers (feed updates, timers)
 async function loadNextBuses() {
-	console.log('started loading next buses');
+	
 	await loadNextBusesInternal();
-	console.log('finished loading next buses');
+	
 }
 
 // Throttled wrapper for user location changes only
@@ -118,7 +118,7 @@ async function loadNextBusesInternal() {
 	// Update last load location for throttling
 	lastLoadNextBusesLocation = { lat: loc.latitude, lon: loc.longitude };
 	lastLoadNextBusesTime = Date.now();
-	// console.log(loc);
+	// 
 	const transitFeed = get(transitFeedStore);
 	const liveFeed = get(liveTransitFeed);
 	const stops = await filterLocationsByRange(
@@ -338,7 +338,7 @@ export async function displayCurrentTrip() {
 	// Take currently selected trip id, filter next buses, if id not in next buses list, get bus at nextBusIndex from next buses list
 	// display relevant markers and layers on map
 	if (get(discoveryLoading)) {
-		console.log('fast exit rendering current trip, already rendering another');
+		
 		return
 	}
 	discoveryLoading.set(true);
@@ -346,11 +346,11 @@ export async function displayCurrentTrip() {
 	displayingMarkerStyles = [];
 	// Get the route direction
 	const direction = get(airportDirection) ? 'toAirport' : 'toCity';
-	console.log('identified direction ' + direction);
+	
 	// Get the selected item, this will affect the state of our styles
 	const highlighted = get(selected);
 	// Get the selected stop, if a stop is selected
-	console.log('identified highlighted ');
+	
 	const highlightStop =
 		highlighted !== undefined && Object.hasOwn(highlighted, 'stop_id')
 			? (highlighted as Stop)
@@ -367,7 +367,7 @@ export async function displayCurrentTrip() {
 	// 		? (highlighted as LiveTrip)
 	// 		: undefined;
 	const buses = get(nextBuses)[direction];
-	console.log('identified buses for direction ');
+	
 	const index = get(nextBusIndex);
 	// Only cancel existing animation if the trip changes; otherwise preserve animation continuity
 	const selectedTrip = get(selectedTripID);
@@ -376,7 +376,7 @@ export async function displayCurrentTrip() {
 		discoveryLoading.set(false);
 		return;
 	}
-	console.log('identified selected trip ');
+	
 	const tripFind = buses.find((val) => val.trip_id === selectedTrip);
 	// If the selected/displaying trip is no longer in nextBuses, find its new index or reset gracefully
 	if (!tripFind) {
@@ -510,7 +510,7 @@ export async function displayCurrentTrip() {
 		}));
 	const geoJSONShapeAfter = geoJSONFromShape(splitRes.shapeAfter.map((v) => [v.lon, v.lat]));
 	const geoJSONShapeBefore = geoJSONFromShape(splitRes.shapeBefore.map((v) => [v.lon, v.lat]));
-	console.log('variables assigned for rendering, starting layer updates');
+	
 	updateLayer(lineLayer, geoJSONShapeAfter);
 	updateLayer(
 		'GRAY_LINE',
@@ -554,7 +554,7 @@ export async function displayCurrentTrip() {
 		closestStop.stop.stop_lon
 	).then((data) => updateLayer(walkLayer, data))
 	 .catch((err) => console.error('Failed to fetch walking route', err));
-	console.log('layers updated, starting marker updates');
+	
 	const busStopStyle =
 		highlighted !== undefined &&
 		(highlightStop === undefined || closestStop.stop.stop_id !== highlightStop.stop_id)
@@ -601,7 +601,7 @@ export async function displayCurrentTrip() {
 		undefined,
 		undefined
 	);
-	console.log('completing bus marker update next');
+	
 	// Ensure bus highlight only when this trip is selected
 	const liveLoc = vehicle ? vehicle.previous_locations.length > 1 ? vehicle.previous_locations[vehicle.previous_locations.length - 2] : vehicle.previous_locations[vehicle.previous_locations.length - 1] : undefined;
 	const bearing = liveLoc ? liveLoc.bearing : vehicle ? vehicle.bearing : 0;
@@ -622,7 +622,7 @@ export async function displayCurrentTrip() {
 		},
 		bearing
 	);
-	console.log('finished updating bus marker');
+	
 	displayingMarkerStyles.push(
 		highlighted !== undefined &&
 			(highlightTrip === undefined || highlightTrip.trip_id !== currentTrip.trip_id)
@@ -640,7 +640,7 @@ export async function displayCurrentTrip() {
 		stop_id: closestStop.stop.stop_id,
 		stop_time: closestStop.stop_time.getTime()
 	};
-	console.log('updating stores');
+	
 	displayingTrip.set(currentTrip);
 	highlightedStop.set(closestStop.stop);
 	await animateBusMarker(currentTrip, closestStop.stop);
@@ -648,7 +648,7 @@ export async function displayCurrentTrip() {
 	// Save the current display signature as last rendered
 	lastDisplaySignature = displaySignature;
 	discoveryLoading.set(false);
-	console.log('finished rendering current trip');
+	
 }
 
 function toggleAirportDirectionInternal(
@@ -929,7 +929,6 @@ function geoJSONFromStops(stops: { stop: Stop; stop_time: Date }[]): GeoJSONSour
 			}
 		}))
 	};
-	// console.log(geojson);
 	return { type: 'geojson', data: geojson };
 }
 

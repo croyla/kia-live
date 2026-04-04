@@ -74,6 +74,9 @@
 			}
 		});
 		pane.present({ animate: true });
+		// Intercept touchstart at the wrapper so it never bubbles to document,
+		// preventing MapLibre's document-level listener from starting a pan gesture.
+		pane.wrapperEl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 	}
 
 	$: selectedTrip = $selected as Trip | LiveTrip;
@@ -96,6 +99,7 @@
 				paneVisible = false;
 				closing = false;
 			});
+			console.log(showPane);
 		} else {
 			paneVisible = false;
 		}
@@ -145,10 +149,8 @@
 
 <style>
 	/* .info-pane is on the cupertino-pane wrapper; override its CSS variables */
-	:global(.info-pane),
 	:global(.info-pane .pane) {
-		touch-action: none;
-			max-width: 764px;
+		max-width: 764px;
 	}
 	:global(.info-pane) {
 			--cupertino-pane-destroy-button-background: #000000;
