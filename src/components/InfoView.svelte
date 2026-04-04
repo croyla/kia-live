@@ -19,9 +19,10 @@
 	let paneEl: HTMLDivElement;
 	let pane: CupertinoPane | undefined;
 	let closing = false; // prevent re-entrant close calls during animation
+	let suppressDismiss = false;
 
 	function handleResize() {
-		isMobile.set(window.innerWidth < 800);
+		isMobile.set(window.innerWidth < 764);
 	}
 
 	onMount(() => {
@@ -56,12 +57,17 @@
 			initialBreak: 'middle',
 			backdrop: false,
 			fastSwipeClose: false,
+			touchMoveStopPropagation: true,
 			cssClass: 'info-pane',
 			events: {
 				onDidDismiss: () => {
 					// User swiped the pane away — clear selection and remove element
 					pane = undefined;
 					paneVisible = false;
+					if(suppressDismiss) {
+						suppressDismiss = false;
+						return;
+					}
 					selected.set(undefined);
 					selectedMetroStation.set('');
 				}
@@ -95,8 +101,9 @@
 		}
 	}
 
-	// If screen switches to desktop while pane is open, tear down without animation
+	// If screen switches to desktop while pane is open, switch to sidebar
 	$: if (!$isMobile && pane) {
+		suppressDismiss = true;
 		pane.destroy({ animate: false });
 		pane = undefined;
 		paneVisible = false;
@@ -121,7 +128,7 @@
 	{/if}
 {:else if showPane}
 	<!-- Sidebar Mode -->
-	<div class="font-[IBM_Plex_Sans] fixed left-0 top-0 h-full w-[{$infoViewWidth}px] bg-black text-white px-6 py-8 shadow-lg z-[3] overflow-y-auto">
+	<div class="font-[IBM_Plex_Sans] fixed left-0 top-0 h-full max-w-21/48 w-[{$infoViewWidth}px] bg-black text-white px-6 py-8 shadow-lg z-[3] overflow-y-auto">
 		{#if $selected !== undefined && !hasSelectedMetro}
 			{#if Object.hasOwn($selected, 'stop_id')}
 				<StopInfo stop={selectedStop} />
@@ -138,6 +145,11 @@
 
 <style>
 	/* .info-pane is on the cupertino-pane wrapper; override its CSS variables */
+	:global(.info-pane),
+	:global(.info-pane .pane) {
+		touch-action: none;
+			max-width: 764px;
+	}
 	:global(.info-pane) {
 			--cupertino-pane-destroy-button-background: #000000;
 			--cupertino-pane-icon-close-color: #FFF;
