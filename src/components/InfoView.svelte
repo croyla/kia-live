@@ -119,7 +119,7 @@
 			{/if}
 		</div>
 	{/if}
-{:else}
+{:else if showPane}
 	<!-- Sidebar Mode -->
 	<div class="font-[IBM_Plex_Sans] fixed left-0 top-0 h-full w-[{$infoViewWidth}px] bg-black text-white px-6 py-8 shadow-lg z-[3] overflow-y-auto">
 		{#if $selected !== undefined && !hasSelectedMetro}
